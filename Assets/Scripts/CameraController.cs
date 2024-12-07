@@ -8,13 +8,24 @@ using UnityEngine.InputSystem;
 public class CameraController : MonoBehaviour
 {
     //Declarations
+    [Header("References")]
     [SerializeField] private PlayerInput _playerInput;
+    [SerializeField] private Camera _playerCamera;
+
+    [Header("Camera Settings")]
     [SerializeField] private bool _isCamControlEnabled = false;
-    [SerializeField] private float _cameraTurnSpeed = 50f; 
-    [SerializeField] private float _cameraPitchSpeed = 50f;
+    [SerializeField] private float _turnSpeed = 50f; 
+    [SerializeField] private float _pitchSpeed = 50f;
     [SerializeField] private float _minPitch = -60;
     [SerializeField] private float _maxPitch = 60;
     [SerializeField] private bool _invertY = true;
+
+    [Header("Movement Settings")]
+    [SerializeField] private float _moveSpeed;
+    [SerializeField] private Vector3 _relativeForwardDirection;
+    [SerializeField] private Vector3 _relativeStrafeDirection;
+
+    [Header("Debug")]
     [SerializeField] private bool _areControlsConnected = false;
     [SerializeField] private Vector2 _detectedMoveInput;
     [SerializeField] private Vector2 _detectedCameraInput;
@@ -44,7 +55,11 @@ public class CameraController : MonoBehaviour
         ReadInputs();
 
         if (_isCamControlEnabled)
-            ControlCamera();
+        {
+            RotateCamera();
+            MoveCamera();
+        }
+            
     }
 
 
@@ -90,11 +105,11 @@ public class CameraController : MonoBehaviour
         }
     }
 
-    private void ControlCamera()
+    private void RotateCamera()
     {
         if (_detectedCameraInput.x != 0)
         {
-            Vector3 rotationOffset = Vector3.up * _detectedCameraInput.x * _cameraTurnSpeed * Time.deltaTime;
+            Vector3 rotationOffset = Vector3.up * _detectedCameraInput.x * _turnSpeed * Time.deltaTime;
             transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles + rotationOffset);
         }
 
@@ -108,10 +123,10 @@ public class CameraController : MonoBehaviour
                 (_pitchDistance > _minPitch && _detectedCameraInput.y < 0))    //Are we attempting to pivot UP while remaining in range
             {
                 //update the pitch's current distance from the origin of where we started (0)
-                _pitchDistance += _detectedCameraInput.y * _cameraPitchSpeed * Time.deltaTime;
+                _pitchDistance += _detectedCameraInput.y * _pitchSpeed * Time.deltaTime;
 
                 //apply the camera's relevant displacement
-                Vector3 rotationOffset = Vector3.right * _detectedCameraInput.y * _cameraPitchSpeed * Time.deltaTime;
+                Vector3 rotationOffset = Vector3.right * _detectedCameraInput.y * _pitchSpeed * Time.deltaTime;
                 transform.rotation = Quaternion.Euler(transform.rotation.eulerAngles + rotationOffset);
             }
 
@@ -127,6 +142,37 @@ public class CameraController : MonoBehaviour
     {
         _isCamControlEnabled = true;
     }
+
+    private void MoveCamera()
+    {
+        //move forwards/backwards
+        if (_detectedMoveInput.y != 0)
+        {
+            //Calculate our desired forwards direction, relative to the camera
+            _relativeForwardDirection = _playerCamera.transform.TransformDirection(Vector3.forward);
+
+            //ignore the height dimension
+            _relativeForwardDirection.y = 0;
+            _relativeForwardDirection = _relativeForwardDirection.normalized;
+
+            transform.position += _detectedMoveInput.y * _moveSpeed * Time.deltaTime * _relativeForwardDirection;
+        }
+
+        if (_detectedMoveInput.x != 0)
+        {
+            //Calculate our desired Right direction, relative to the camera (to capture the strafing axis)
+            _relativeStrafeDirection = _playerCamera.transform.TransformDirection(Vector3.right);
+
+            //ignore the height dimension
+            _relativeStrafeDirection.y = 0;
+            _relativeStrafeDirection = _relativeStrafeDirection.normalized;
+
+            transform.position +=  _detectedMoveInput.x * _moveSpeed * Time.deltaTime * _relativeStrafeDirection;
+        }
+
+    }
+
+
 
     //Externals
     public void SetCamerControl(bool enableCamera)
