@@ -11,6 +11,8 @@ public class CameraController : MonoBehaviour
     [Header("References")]
     [SerializeField] private PlayerInput _playerInput;
     [SerializeField] private Camera _playerCamera;
+    [SerializeField] private Transform _playerObject;
+    [SerializeField] private Transform _modelObject;
 
     [Header("Camera Settings")]
     [SerializeField] private bool _isCamControlEnabled = false;
@@ -21,7 +23,9 @@ public class CameraController : MonoBehaviour
     [SerializeField] private bool _invertY = true;
 
     [Header("Movement Settings")]
-    [SerializeField] private float _moveSpeed;
+    [SerializeField] private float _bodyMoveSpeed;
+    [SerializeField] private float _bodyTurnSpeed;
+    [SerializeField] private float _turnDegreeTolerance = .05f;
     [SerializeField] private Vector3 _relativeForwardDirection;
     [SerializeField] private Vector3 _relativeStrafeDirection;
 
@@ -57,7 +61,7 @@ public class CameraController : MonoBehaviour
         if (_isCamControlEnabled)
         {
             RotateCamera();
-            MoveCamera();
+            MoveBody();
         }
             
     }
@@ -143,8 +147,17 @@ public class CameraController : MonoBehaviour
         _isCamControlEnabled = true;
     }
 
-    private void MoveCamera()
+    private void MoveBody()
     {
+        if (_detectedMoveInput.magnitude != 0)
+        {
+            //Calculate our desired forwards direction, relative to the camera
+            _relativeForwardDirection = _playerCamera.transform.TransformDirection(Vector3.forward);
+
+            //rotate the body to face forwards
+            RotateBodyForwardsTowardsTargetDirection(_relativeForwardDirection);
+        }
+
         //move forwards/backwards
         if (_detectedMoveInput.y != 0)
         {
@@ -155,7 +168,8 @@ public class CameraController : MonoBehaviour
             _relativeForwardDirection.y = 0;
             _relativeForwardDirection = _relativeForwardDirection.normalized;
 
-            transform.position += _detectedMoveInput.y * _moveSpeed * Time.deltaTime * _relativeForwardDirection;
+            //move in the proper axis
+            _playerObject.position += _detectedMoveInput.y * _bodyMoveSpeed * Time.deltaTime * _relativeForwardDirection;
         }
 
         if (_detectedMoveInput.x != 0)
@@ -167,10 +181,41 @@ public class CameraController : MonoBehaviour
             _relativeStrafeDirection.y = 0;
             _relativeStrafeDirection = _relativeStrafeDirection.normalized;
 
-            transform.position +=  _detectedMoveInput.x * _moveSpeed * Time.deltaTime * _relativeStrafeDirection;
+            //move in the proper axis
+            _playerObject.position +=  _detectedMoveInput.x * _bodyMoveSpeed * Time.deltaTime * _relativeStrafeDirection;
+
         }
 
     }
+
+    private void RotateBodyForwardsTowardsTargetDirection(Vector3 cameraForwards)
+    {
+        Vector3 currentBodyFowards = _modelObject.TransformDirection(Vector3.forward);
+
+        float signedDifference = Vector3.SignedAngle(currentBodyFowards, cameraForwards, Vector3.up);
+        //Debug.Log($"Difference from body forwards to camera forwards: {signedDifference}");
+
+       
+        if ( signedDifference > _turnDegreeTolerance)
+        {
+            Vector3 currentRotation = _modelObject.rotation.eulerAngles;
+            float rotationalModifier = _bodyTurnSpeed * Time.deltaTime;
+            Debug.Log($"Rotational Modifier: {rotationalModifier}");
+            Vector3 newRotation = currentRotation + new Vector3(0, rotationalModifier, 0);
+            _modelObject.rotation = Quaternion.Euler(newRotation);
+        }
+
+        else if (signedDifference < -_turnDegreeTolerance)
+        {
+            Vector3 currentRotation = _modelObject.rotation.eulerAngles;
+            float rotationalModifier = -_bodyTurnSpeed * Time.deltaTime;
+            Debug.Log($"Rotational Modifier: {rotationalModifier}");
+            Vector3 newRotation = currentRotation + new Vector3(0,+ rotationalModifier, 0);
+            _modelObject.rotation = Quaternion.Euler(newRotation);
+        }
+
+    }
+
 
 
 
